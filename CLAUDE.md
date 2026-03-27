@@ -16,6 +16,25 @@ npm run preview      # serve dist/ locally to verify the build
 
 There is no linter or test suite configured.
 
+## Git workflow
+
+Commit and push to GitHub after every meaningful unit of work — a completed feature, a bug fix, a content change. Never leave work uncommitted at the end of a session.
+
+```bash
+git add <changed files>
+git commit -m "concise description of what changed and why"
+git push
+```
+
+Commit message conventions used in this repo:
+- `feat:` new feature or content (e.g. `feat: add business English lesson`)
+- `fix:` bug fix (e.g. `fix: recorder not resetting between sentences`)
+- `style:` visual/CSS changes only
+- `ci:` changes to the GitHub Actions workflow
+- `docs:` documentation only
+
+Push frequently so progress is never lost and any change can be reverted with `git revert <hash>`.
+
 ## Deploying
 
 Every push to `main` automatically builds and deploys via GitHub Actions (`.github/workflows/deploy.yml`).

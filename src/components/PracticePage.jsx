@@ -2,36 +2,47 @@ import { useState, useEffect, useCallback } from 'react';
 import { LEVELS } from '../data/lessons.js';
 import { useTTS } from '../hooks/useTTS.js';
 import { useRecorder } from '../hooks/useRecorder.js';
+import { usePronunciationScore } from '../hooks/usePronunciationScore.js';
 
 // ── Phase configuration ───────────────────────────────────────────────────────
 const PHASE_CONFIG = {
-  idle:            { icon: '🔊', color: '#2563eb', title: 'Ready',          subtitle: 'Press Listen to hear the sentence.' },
+  idle:            { icon: '🔊', color: '#2563eb', title: 'Ready',           subtitle: 'Press Listen to hear the sentence.' },
   listening:       { icon: '👂', color: '#2563eb', title: 'Listen Carefully', subtitle: 'Pay attention to pronunciation and rhythm.' },
-  waitingToRepeat: { icon: '🎙️', color: '#ea580c', title: 'Your Turn!',     subtitle: 'Press Record and repeat the sentence aloud.' },
-  recording:       { icon: '🔴', color: '#dc2626', title: 'Recording…',      subtitle: 'Speak clearly, then press Stop when done.' },
-  recorded:        { icon: '✅', color: '#16a34a', title: 'Nice Work!',       subtitle: 'Play back to compare, or move to the next sentence.' },
+  waitingToRepeat: { icon: '🎙️', color: '#ea580c', title: 'Your Turn!',      subtitle: 'Press Record and repeat the sentence aloud.' },
+  recording:       { icon: '🔴', color: '#dc2626', title: 'Recording…',       subtitle: 'Speak clearly, then press Stop when done.' },
+  recorded:        { icon: '✅', color: '#16a34a', title: 'Nice Work!',        subtitle: 'See your score below, then continue.' },
 };
+
+const PASS_THRESHOLD = 70;
 
 export default function PracticePage({ lesson, onBack }) {
   const [idx, setIdx]           = useState(0);
   const [phase, setPhase]       = useState('idle');
-  const [speed, setSpeed]       = useState(0.5);   // 0–1, remapped in useTTS
+  const [speed, setSpeed]       = useState(0.5);
   const [showDone, setShowDone] = useState(false);
 
   const tts      = useTTS();
   const recorder = useRecorder();
+  const scoring  = usePronunciationScore();
 
   const sentence = lesson.sentences[idx];
   const isLast   = idx === lesson.sentences.length - 1;
   const meta     = LEVELS[lesson.level];
   const pct      = Math.round(((idx + 1) / lesson.sentences.length) * 100);
 
-  // ── Auto-listen when sentence changes ────────────────────────────────────
+  // Whether the current score blocks forward navigation
+  const scoreFailing = scoring.supported
+    && phase === 'recorded'
+    && scoring.score !== null
+    && scoring.score < PASS_THRESHOLD;
+
+  // ── Listen ────────────────────────────────────────────────────────────────
   const listenToSentence = useCallback(() => {
     recorder.reset();
+    scoring.reset();
     setPhase('listening');
     tts.speak(sentence, speed);
-  }, [sentence, speed, tts, recorder]);
+  }, [sentence, speed, tts, recorder, scoring]);
 
   useEffect(() => {
     tts.onFinishedRef.current = () => {
@@ -39,13 +50,14 @@ export default function PracticePage({ lesson, onBack }) {
     };
   }, [tts.onFinishedRef]);
 
-  // Auto-play on mount and when sentence changes
+  // Auto-play when sentence index changes
   useEffect(() => {
     const timer = setTimeout(listenToSentence, 300);
     return () => {
       clearTimeout(timer);
       tts.stop();
       recorder.reset();
+      scoring.reset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx]);
@@ -54,6 +66,7 @@ export default function PracticePage({ lesson, onBack }) {
   function goNext() {
     tts.stop();
     recorder.reset();
+    scoring.reset();
     if (isLast) {
       setShowDone(true);
     } else {
@@ -66,19 +79,29 @@ export default function PracticePage({ lesson, onBack }) {
     if (idx === 0) return;
     tts.stop();
     recorder.reset();
+    scoring.reset();
     setIdx((i) => i - 1);
     setPhase('idle');
+  }
+
+  // Return to waitingToRepeat so the student can record again immediately
+  function tryAgain() {
+    recorder.reset();
+    scoring.reset();
+    setPhase('waitingToRepeat');
   }
 
   // ── Recording controls ────────────────────────────────────────────────────
   function handleRecord() {
     if (phase === 'recording') {
       recorder.stopRecording();
+      scoring.stopScoring();
       setPhase('recorded');
     } else {
       tts.stop();
       setPhase('recording');
       recorder.startRecording();
+      scoring.startScoring(sentence);
     }
   }
 
@@ -88,11 +111,13 @@ export default function PracticePage({ lesson, onBack }) {
 
   // ── Completion screen ─────────────────────────────────────────────────────
   if (showDone) {
-    return <CompletionScreen lesson={lesson} onBack={onBack} onRestart={() => {
-      setIdx(0);
-      setPhase('idle');
-      setShowDone(false);
-    }} />;
+    return (
+      <CompletionScreen
+        lesson={lesson}
+        onBack={onBack}
+        onRestart={() => { setIdx(0); setPhase('idle'); setShowDone(false); }}
+      />
+    );
   }
 
   const cfg = PHASE_CONFIG[phase];
@@ -101,7 +126,7 @@ export default function PracticePage({ lesson, onBack }) {
     <div className="practice-page">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="practice-header">
-        <button className="back-btn" onClick={() => { tts.stop(); recorder.reset(); onBack(); }}>
+        <button className="back-btn" onClick={() => { tts.stop(); recorder.reset(); scoring.reset(); onBack(); }}>
           ‹ Back
         </button>
         <div className="practice-header-center">
@@ -134,13 +159,8 @@ export default function PracticePage({ lesson, onBack }) {
               <div className="speaker-voice">{tts.voiceName}</div>
             </div>
           </div>
-
           <hr className="card-divider" />
-
-          {/* Highlighted sentence */}
           <HighlightedText text={sentence} range={tts.highlightedRange} />
-
-          {/* Animated wave while listening */}
           {phase === 'listening' && <SoundWave />}
         </div>
 
@@ -153,14 +173,21 @@ export default function PracticePage({ lesson, onBack }) {
           </div>
         </div>
 
+        {/* ── Score card (shown after recording) ─────────────────────────────── */}
+        {phase === 'recorded' && (
+          <ScoreCard
+            score={scoring.score}
+            transcript={scoring.transcript}
+            isScoring={scoring.isScoring}
+            supported={scoring.supported}
+          />
+        )}
+
         {/* ── Speed slider ───────────────────────────────────────────────────── */}
         <div className="speed-control">
           <span className="speed-icon">🐢</span>
           <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
+            type="range" min="0" max="1" step="0.1"
             value={speed}
             onChange={(e) => setSpeed(Number(e.target.value))}
             disabled={phase === 'listening'}
@@ -215,7 +242,7 @@ export default function PracticePage({ lesson, onBack }) {
         </div>
       </div>
 
-      {/* ── Bottom nav ───────────────────────────────────────────────────────── */}
+      {/* ── Bottom navigation bar ───────────────────────────────────────────── */}
       <div className="bottom-bar">
         <button
           className="nav-btn nav-btn--ghost"
@@ -224,9 +251,22 @@ export default function PracticePage({ lesson, onBack }) {
         >
           ‹ Previous
         </button>
-        <button className="nav-btn nav-btn--solid" onClick={goNext}>
-          {isLast ? '✓ Finish' : 'Next ›'}
-        </button>
+
+        {scoreFailing ? (
+          /* Score below threshold — nudge student to try again */
+          <div className="bottom-bar-retry">
+            <button className="nav-btn nav-btn--ghost-sm" onClick={goNext}>
+              {isLast ? 'Finish anyway' : 'Skip anyway'}
+            </button>
+            <button className="nav-btn nav-btn--orange" onClick={tryAgain}>
+              🔄 Try Again
+            </button>
+          </div>
+        ) : (
+          <button className="nav-btn nav-btn--solid" onClick={goNext}>
+            {isLast ? '✓ Finish' : 'Next ›'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -234,19 +274,70 @@ export default function PracticePage({ lesson, onBack }) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function HighlightedText({ text, range }) {
-  if (!range) {
-    return <p className="sentence-text">{text}</p>;
+function ScoreCard({ score, transcript, isScoring, supported }) {
+  if (!supported) return null;
+
+  if (isScoring) {
+    return (
+      <div className="score-card score-card--loading">
+        <span className="score-spinner" />
+        <span className="score-analyzing">Analyzing pronunciation…</span>
+      </div>
+    );
   }
+
+  if (score === null) return null;
+
+  const { color, bg, emoji, label } = scoreMeta(score);
+
+  return (
+    <div className="score-card" style={{ '--sc': color, '--sc-bg': bg }}>
+      <div className="score-card-header">🎯 Pronunciation Score</div>
+
+      <div className="score-display">
+        <span className="score-number">{score}</span>
+        <span className="score-denom">/100</span>
+      </div>
+
+      {/* Score bar */}
+      <div className="score-bar-track">
+        <div
+          className="score-bar-fill"
+          style={{ width: `${score}%`, background: color }}
+        />
+        {/* Threshold line at 70 */}
+        <div className="score-threshold-line" style={{ left: `${PASS_THRESHOLD}%` }} />
+      </div>
+      <div className="score-threshold-label">
+        <span style={{ marginLeft: `${PASS_THRESHOLD}%` }}>Pass ({PASS_THRESHOLD})</span>
+      </div>
+
+      <div className="score-verdict">{emoji} {label}</div>
+
+      {transcript && (
+        <div className="score-transcript">
+          You said: <em>"{transcript}"</em>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function scoreMeta(score) {
+  if (score >= 90) return { color: '#16a34a', bg: '#dcfce7', emoji: '🌟', label: 'Excellent! Perfect pronunciation.' };
+  if (score >= 70) return { color: '#16a34a', bg: '#dcfce7', emoji: '👍', label: 'Good job! You can move on.' };
+  if (score >= 50) return { color: '#ea580c', bg: '#fff7ed', emoji: '💪', label: 'Almost there — try again to improve.' };
+  return             { color: '#dc2626', bg: '#fef2f2', emoji: '🔄', label: 'Keep practicing — you\'ve got this!' };
+}
+
+function HighlightedText({ text, range }) {
+  if (!range) return <p className="sentence-text">{text}</p>;
   const { start, length } = range;
-  const before = text.slice(0, start);
-  const word   = text.slice(start, start + length);
-  const after  = text.slice(start + length);
   return (
     <p className="sentence-text">
-      {before}
-      <mark className="word-highlight">{word}</mark>
-      {after}
+      {text.slice(0, start)}
+      <mark className="word-highlight">{text.slice(start, start + length)}</mark>
+      {text.slice(start + length)}
     </p>
   );
 }
@@ -256,11 +347,8 @@ function SoundWave() {
   return (
     <div className="sound-wave">
       {heights.map((h, i) => (
-        <span
-          key={i}
-          className="wave-bar"
-          style={{ '--bar-h': `${h}px`, animationDelay: `${i * 80}ms` }}
-        />
+        <span key={i} className="wave-bar"
+          style={{ '--bar-h': `${h}px`, animationDelay: `${i * 80}ms` }} />
       ))}
     </div>
   );

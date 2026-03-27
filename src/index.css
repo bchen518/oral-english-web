@@ -505,8 +505,109 @@ hr { border: none; border-top: 1px solid var(--gray-200); }
 .nav-btn--ghost { color: var(--blue); }
 .nav-btn--ghost:hover:not(:disabled) { background: rgba(37,99,235,.08); }
 .nav-btn--ghost:disabled { color: var(--gray-400); }
-.nav-btn--solid { background: var(--blue); color: var(--white); }
-.nav-btn--solid:hover { background: var(--blue-dim); }
+.nav-btn--solid  { background: var(--blue);   color: var(--white); }
+.nav-btn--solid:hover  { background: var(--blue-dim); }
+.nav-btn--orange { background: var(--orange); color: var(--white); }
+.nav-btn--orange:hover { filter: brightness(1.08); }
+/* Smaller ghost variant used alongside Try Again */
+.nav-btn--ghost-sm { font-size: 12px; font-weight: 600; padding: 8px 14px; color: var(--gray-400); border-radius: 999px; }
+.nav-btn--ghost-sm:hover { color: var(--gray-600); background: var(--gray-100); }
+
+/* Try Again row in bottom bar */
+.bottom-bar-retry { display: flex; align-items: center; gap: 8px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Pronunciation score card
+───────────────────────────────────────────────────────────────────────────── */
+.score-card {
+  background: var(--sc-bg, #f0fdf4);
+  border: 1.5px solid var(--sc, #16a34a);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: scoreIn .3s ease both;
+}
+@keyframes scoreIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.score-card--loading {
+  background: var(--white);
+  border-color: var(--gray-200);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Spinner */
+.score-spinner {
+  display: inline-block;
+  width: 20px; height: 20px;
+  border: 2.5px solid var(--gray-200);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.score-analyzing { font-size: 14px; color: var(--gray-600); }
+
+.score-card-header { font-size: 13px; font-weight: 700; color: var(--gray-600); }
+
+/* Big score number */
+.score-display { display: flex; align-items: baseline; gap: 2px; }
+.score-number  { font-size: 52px; font-weight: 800; line-height: 1; color: var(--sc, #16a34a); }
+.score-denom   { font-size: 18px; font-weight: 600; color: var(--gray-400); }
+
+/* Score bar */
+.score-bar-track {
+  position: relative;
+  height: 8px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: visible;
+}
+.score-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .6s cubic-bezier(.34,1.2,.64,1);
+}
+/* Threshold marker line */
+.score-threshold-line {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 14px;
+  background: var(--gray-400);
+  border-radius: 1px;
+  transform: translateX(-50%);
+}
+.score-threshold-label {
+  font-size: 10px;
+  color: var(--gray-400);
+  position: relative;
+  height: 14px;
+}
+.score-threshold-label span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.score-verdict   { font-size: 15px; font-weight: 600; color: var(--sc, #16a34a); }
+.score-transcript {
+  font-size: 13px;
+  color: var(--gray-600);
+  background: rgba(0,0,0,.04);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+.score-transcript em { font-style: italic; color: var(--gray-900); }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Completion screen

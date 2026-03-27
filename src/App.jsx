@@ -12,9 +12,10 @@ import PracticePage    from './components/PracticePage.jsx';
  *   practice → listen / record / compare
  */
 export default function App() {
-  const [screen, setScreen] = useState('home');   // 'home' | 'list' | 'practice'
+  const [screen,       setScreen]       = useState('home');   // 'home' | 'list' | 'practice'
   const [activeLesson, setActiveLesson] = useState(null);
   const [listLevel,    setListLevel]    = useState(null);  // pre-filter for list
+  const [prevScreen,   setPrevScreen]   = useState('home'); // where to go on Back
 
   function goHome()   { setScreen('home'); }
 
@@ -24,6 +25,7 @@ export default function App() {
   }
 
   function openLesson(lesson) {
+    setPrevScreen(screen);  // remember origin so Back goes to the right place
     setActiveLesson(lesson);
     setScreen('practice');
   }
@@ -43,7 +45,7 @@ export default function App() {
       )}
 
       {screen === 'practice' && activeLesson && (
-        <PracticePage lesson={activeLesson} onBack={() => setScreen('list')} />
+        <PracticePage lesson={activeLesson} onBack={() => setScreen(prevScreen)} />
       )}
     </div>
   );

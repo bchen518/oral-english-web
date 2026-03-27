@@ -164,23 +164,33 @@ export default function PracticePage({ lesson, onBack }) {
           {phase === 'listening' && <SoundWave />}
         </div>
 
-        {/* ── Phase guide ────────────────────────────────────────────────────── */}
-        <div className="phase-guide" style={{ '--phase-color': cfg.color }}>
-          <div className="phase-icon">{cfg.icon}</div>
-          <div>
-            <div className="phase-title">{cfg.title}</div>
-            <div className="phase-subtitle">{cfg.subtitle}</div>
+        {/* ── Phase guide (+ inline score when recorded) ─────────────────────── */}
+        {phase === 'recorded' && scoring.supported ? (
+          <>
+            <div className="phase-score-row">
+              <div className="phase-guide" style={{ '--phase-color': cfg.color }}>
+                <div className="phase-icon">{cfg.icon}</div>
+                <div>
+                  <div className="phase-title">{cfg.title}</div>
+                  <div className="phase-subtitle">{cfg.subtitle}</div>
+                </div>
+              </div>
+              <InlineScore score={scoring.score} isScoring={scoring.isScoring} />
+            </div>
+            {scoring.transcript && (
+              <div className="score-transcript-line">
+                You said: <em>"{scoring.transcript}"</em>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="phase-guide" style={{ '--phase-color': cfg.color }}>
+            <div className="phase-icon">{cfg.icon}</div>
+            <div>
+              <div className="phase-title">{cfg.title}</div>
+              <div className="phase-subtitle">{cfg.subtitle}</div>
+            </div>
           </div>
-        </div>
-
-        {/* ── Score card (shown after recording) ─────────────────────────────── */}
-        {phase === 'recorded' && (
-          <ScoreCard
-            score={scoring.score}
-            transcript={scoring.transcript}
-            isScoring={scoring.isScoring}
-            supported={scoring.supported}
-          />
         )}
 
         {/* ── Speed slider ───────────────────────────────────────────────────── */}
@@ -274,51 +284,28 @@ export default function PracticePage({ lesson, onBack }) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function ScoreCard({ score, transcript, isScoring, supported }) {
-  if (!supported) return null;
-
+function InlineScore({ score, isScoring }) {
   if (isScoring) {
     return (
-      <div className="score-card score-card--loading">
-        <span className="score-spinner" />
-        <span className="score-analyzing">Analyzing pronunciation…</span>
+      <div className="inline-score inline-score--loading">
+        <i className="live-spinner" />
+        <span style={{ fontSize: 11, color: 'var(--gray-600)' }}>Analyzing…</span>
       </div>
     );
   }
-
   if (score === null) return null;
-
-  const { color, bg, emoji, label } = scoreMeta(score);
-
+  const { color, bg, emoji } = scoreMeta(score);
   return (
-    <div className="score-card" style={{ '--sc': color, '--sc-bg': bg }}>
-      <div className="score-card-header">🎯 Pronunciation Score</div>
-
-      <div className="score-display">
-        <span className="score-number">{score}</span>
-        <span className="score-denom">/100</span>
+    <div className="inline-score" style={{ '--sc': color, '--sc-bg': bg }}>
+      <div className="inline-score-label">Score</div>
+      <div className="inline-score-num">
+        {score}<span className="inline-score-denom">/100</span>
       </div>
-
-      {/* Score bar */}
-      <div className="score-bar-track">
-        <div
-          className="score-bar-fill"
-          style={{ width: `${score}%`, background: color }}
-        />
-        {/* Threshold line at 70 */}
-        <div className="score-threshold-line" style={{ left: `${PASS_THRESHOLD}%` }} />
+      <div className="inline-score-bar-track">
+        <div className="inline-score-bar-fill" style={{ width: `${score}%`, background: color }} />
+        <div className="inline-score-threshold" style={{ left: `${PASS_THRESHOLD}%` }} />
       </div>
-      <div className="score-threshold-label">
-        <span style={{ marginLeft: `${PASS_THRESHOLD}%` }}>Pass ({PASS_THRESHOLD})</span>
-      </div>
-
-      <div className="score-verdict">{emoji} {label}</div>
-
-      {transcript && (
-        <div className="score-transcript">
-          You said: <em>"{transcript}"</em>
-        </div>
-      )}
+      <div className="inline-score-emoji">{emoji}</div>
     </div>
   );
 }
